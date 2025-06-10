@@ -1,0 +1,198 @@
+  <h2>বেট হিস্টোরি</h2>
+  <div id="bet-history" style="max-height:200px; overflow-y:auto; border:1px solid #004aad; padding:8px; border-radius:6px;">
+    <p style="color:#aaa;">এখনও কোন বেট করা হয়নি।</p>
+  </div>
+</div>
+
+<!-- R Button -->
+<div id="r-button">R</div>
+
+<!-- Password Modal -->
+<div id="password-modal">
+  <div class="modal-content">
+    <div id="password-error" style="display:none;">ভুল পাসওয়ার্ড!</div>
+    <input type="password" id="admin-password" placeholder="পাসওয়ার্ড দিন" />
+    <button onclick="checkPassword()">লগইন</button>
+  </div>
+</div>
+
+<!-- Admin Panel -->
+<div class="container" id="admin-panel">
+  <h3>অ্যাডমিন প্যানেল</h3>
+
+  <label>ম্যাচ নাম:</label>
+  <input type="text" id="match-title" placeholder="Cricket - Team A vs Team B" />
+
+  <label>টিম ১ নাম:</label>
+  <input type="text" id="team1-name" placeholder="Team A" />
+
+  <label>টিম ১ মাল্টিপ্লায়ার:</label>
+  <input type="number" id="team1-multiplier" value="2" />
+
+  <label>টিম ২ নাম:</label>
+  <input type="text" id="team2-name" placeholder="Team B" />
+
+  <label>টিম ২ মাল্টিপ্লায়ার:</label>
+  <input type="number" id="team2-multiplier" value="2" />
+
+  <button onclick="addMatch()">ম্যাচ যুক্ত করুন</button>
+
+  <div id="matches-list"></div>
+</div>
+
+<script>
+let balance = 0;
+let matches = [];
+let betHistory = [];
+
+document.getElementById('deposit-tab').onclick = () => {
+  document.getElementById('deposit-tab').classList.add('active');
+  document.getElementById('withdraw-tab').classList.remove('active');
+  document.getElementById('deposit-content').classList.add('active');
+  document.getElementById('withdraw-content').classList.remove('active');
+};
+
+document.getElementById('withdraw-tab').onclick = () => {
+  document.getElementById('withdraw-tab').classList.add('active');
+  document.getElementById('deposit-tab').classList.remove('active');
+  document.getElementById('withdraw-content').classList.add('active');
+  document.getElementById('deposit-content').classList.remove('active');
+};
+
+// Admin Login
+document.getElementById('r-button').onclick = () => {
+  document.getElementById('password-modal').classList.add('active');
+};
+
+function checkPassword() {
+  const pass = document.getElementById('admin-password').value;
+  if (pass === 'rezoan') {
+    document.getElementById('password-modal').classList.remove('active');
+    document.getElementById('admin-panel').style.display = 'block';
+  } else {
+    document.getElementById('password-error').style.display = 'block';
+  }
+}
+
+// Add Match
+function addMatch() {
+  const title = document.getElementById('match-title').value;
+  const team1 = document.getElementById('team1-name').value;
+  const team2 = document.getElementById('team2-name').value;
+  const mult1 = parseFloat(document.getElementById('team1-multiplier').value);
+  const mult2 = parseFloat(document.getElementById('team2-multiplier').value);
+  const id = Date.now();
+
+  const match = { id, title, team1, team2, mult1, mult2, winner: null };
+  matches.push(match);
+  updateMatchList();
+  updateMatchDropdown();
+}
+
+// Show match in dropdown
+function updateMatchDropdown() {
+  const select = document.getElementById('match-select');
+  select.innerHTML = '<option value="">ম্যাচ সিলেক্ট করুন</option>';
+  matches.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.innerText = m.title;
+    select.appendChild(opt);
+  });
+}
+
+// Show in admin match list
+function updateMatchList() {
+  const container = document.getElementById('matches-list');
+  container.innerHTML = '';
+  matches.forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'match-item';
+    div.innerHTML = `
+      <div class="match-teams">
+        ${m.title}
+        <div>
+          <span class="win-btn" onclick="setWinner(${m.id}, 1)">Team 1 Win</span>
+          <span class="win-btn" onclick="setWinner(${m.id}, 2)">Team 2 Win</span>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// Set Winner
+function setWinner(matchId, teamNo) {
+  const match = matches.find(m => m.id === matchId);
+  if (!match) return;
+  match.winner = teamNo;
+  alert(`Winner set to ${teamNo === 1 ? match.team1 : match.team2}`);
+}
+
+// Match Selection
+document.getElementById('match-select').onchange = (e) => {
+  const selectedId = parseInt(e.target.value);
+  const match = matches.find(m => m.id === selectedId);
+  if (!match) return;
+  document.getElementById('teams-container').style.display = 'block';
+  document.getElementById('team1-btn').innerText = match.team1;
+  document.getElementById('team2-btn').innerText = match.team2;
+  document.getElementById('team1-btn').onclick = () => selectTeam(match, 1);
+  document.getElementById('team2-btn').onclick = () => selectTeam(match, 2);
+};
+
+function selectTeam(match, teamNo) {
+  const betAmount = parseFloat(document.getElementById('bet-amount').value);
+  if (!betAmount || betAmount <= 0) return alert('বেট এমাউন্ট লিখুন');
+  if (betAmount > balance) return alert('আপনার ব্যালেন্স পর্যাপ্ত নয়');
+
+  const multiplier = teamNo === 1 ? match.mult1 : match.mult2;
+  const profit = betAmount * multiplier;
+
+  document.getElementById('profit-display').style.display = 'block';
+  document.getElementById('profit-display').innerText = `আপনার প্রফিট হতে পারে: ${profit} BDT`;
+
+  document.getElementById('bet-confirm-btn').onclick = () => {
+    balance -= betAmount;
+    document.getElementById('user-balance').innerText = balance;
+    betHistory.push({
+      match: match.title,
+      team: teamNo === 1 ? match.team1 : match.team2,
+      amount: betAmount,
+      possibleProfit: profit
+    });
+    updateHistory();
+    alert('বেট কনফার্ম হয়েছে');
+  };
+}
+
+function updateHistory() {
+  const container = document.getElementById('bet-history');
+  container.innerHTML = '';
+  betHistory.forEach(bet => {
+    const p = document.createElement('p');
+    p.innerText = `ম্যাচ: ${bet.match}, টিম: ${bet.team}, বেট: ${bet.amount}, সম্ভাব্য লাভ: ${bet.possibleProfit}`;
+    container.appendChild(p);
+  });
+}
+
+// Deposit/Withdraw
+document.getElementById('deposit-submit').onclick = () => {
+  const txid = document.getElementById('deposit-txid').value;
+  if (!txid) return alert('ট্রানজেকশন আইডি দিন');
+  balance += 100; // fake deposit
+  document.getElementById('user-balance').innerText = balance;
+  alert('ডিপোজিট রিকুয়েস্ট সফল');
+};
+
+document.getElementById('withdraw-submit').onclick = () => {
+  const txid = document.getElementById('withdraw-txid').value;
+  if (!txid) return alert('ট্রানজেকশন আইডি দিন');
+  if (balance < 50) return alert('উইথড্রো করার মতো পর্যাপ্ত ব্যালেন্স নেই');
+  balance -= 50; // fake withdraw
+  document.getElementById('user-balance').innerText = balance;
+  alert('উইথড্রো রিকুয়েস্ট সফল');
+};
+</script>
+</body>
+</html>
